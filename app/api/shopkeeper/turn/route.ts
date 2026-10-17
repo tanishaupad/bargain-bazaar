@@ -2,6 +2,7 @@ import { customerCue, playShopkeeperTurn, publicShopkeeperGame, type ShopkeeperA
 import { generateDialogue } from "@/lib/sarvam-dialogue";
 import { commitSession, readSession, replaceReply } from "@/lib/session-store";
 import { limitGlobalTurns, limitRequest } from "@/lib/rate-limit";
+import { incompatibleSellerLanguage, romanizeCustomerReply } from "@/lib/customer-language";
 
 const actions: ShopkeeperAction[] = ["ACCEPT", "REJECT", "COUNTER", "WALK_AWAY"];
 
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
   if (game.round !== expectedRound || game.status !== "PLAYING") return Response.json({ error: "This negotiation changed in another tab.", game: publicShopkeeperGame(game), turns: game.transcript }, { status: 409 });
   const price = action === "COUNTER" ? sellerPrice as number : null;
   if (action === "COUNTER" && (price === null || price <= game.currentOffer || price > 100000 || !message.trim())) return Response.json({ error: "Counter above the current offer and add a short message." }, { status: 400 });
+  if (message.trim() && action !== "WALK_AWAY") {
+    const unfamiliar = await incompatibleSellerLanguage(message, game.buyer.language);
+    if (unfamiliar) return Response.json({ languageNotice: `Sorry, I don't know ${unfamiliar}. Could you say that in ${game.buyer.language} or English?`, error: "The customer did not understand your message. Rephrase it without using a round." }, { status: 422 });
+  }
   const globallyLimited = await limitGlobalTurns();
   if (globallyLimited) return globallyLimited;
   const next = structuredClone(game);
@@ -55,13 +60,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "This negotiation changed in another tab.", game: current && "mode" in current.game && current.game.mode === "shopkeeper" ? publicShopkeeperGame(current.game) : null, turns: current && "mode" in current.game && current.game.mode === "shopkeeper" ? current.game.transcript : [] }, { status: 409 });
   }
   const generated = await generateDialogue(
-    `You are ${next.buyer.name}, a customer bargaining for ${next.product.name}. Your preferred response language is ${next.buyer.language}. The shopkeeper may write in a different supported Indian language or script; understand the meaning of their message and respond primarily in ${next.buyer.language}. Natural romanized writing and short code-mixed phrases are welcome, but do not switch fully to the shopkeeper's language. Respond to the seller's last message naturally, in ONE short reply. Your personality is ${next.buyer.style}, but do not name or reveal this trait, your patience, or your hidden maximum. The deterministic game engine has ALREADY decided ${decision}; this is immutable. ${decision === "ACCEPT" ? `You have agreed at exactly ₹${bindingPrice}.` : decision === "COUNTER" ? `You have countered at exactly ₹${bindingPrice}.` : "You are leaving without a deal."} Do not invent any other price or number, and never claim agreement unless the decision is ACCEPT. Weave in this conversational cue where natural: ${customerCue(next)} No markdown.`,
+    `You are ${next.buyer.name}, a customer bargaining for ${next.product.name}. Speak primarily in ${next.buyer.language}. ${["Telugu", "Tamil", "Bengali"].includes(next.buyer.language) ? "Write primarily in that language's native script, with occasional English code switching." : "Natural short code-mixed phrases are welcome."} You know ${next.buyer.language} and English; if that language is Hinglish or Hindi, you also know the other. Do not imply you can converse fluently in another Indian language. Respond to the seller's last message naturally, in ONE short reply. Your personality is ${next.buyer.style}, but do not name or reveal this trait, your patience, or your hidden maximum. The deterministic game engine has ALREADY decided ${decision}; this is immutable. ${decision === "ACCEPT" ? `You have agreed at exactly ₹${bindingPrice}.` : decision === "COUNTER" ? `You have countered at exactly ₹${bindingPrice}.` : "You are leaving without a deal."} Do not invent any other price or number, and never claim agreement unless the decision is ACCEPT. Weave in this conversational cue where natural: ${customerCue(next)} No markdown.`,
     `The shopkeeper action was ${action}${price === null ? "" : ` at ₹${price}`}. Their message: ${message.trim() || "No message."}`,
     bindingPrice,
     fallback,
     decision,
   );
   const reply = generated.toLowerCase().includes(next.buyer.style) ? fallback : generated;
-  if (reply !== fallback && await replaceReply(gameId, next.round, reply)) turn.reply = reply;
+  if (reply !== fallback) {
+    const romanized = await romanizeCustomerReply(reply, next.buyer.language, bindingPrice);
+    if (await replaceReply(gameId, next.round, reply, romanized)) { turn.reply = reply; turn.romanizedReply = romanized; }
+  }
   return Response.json({ game: publicShopkeeperGame(next), turn });
 }

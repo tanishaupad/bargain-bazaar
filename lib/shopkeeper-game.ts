@@ -14,6 +14,7 @@ export type ShopkeeperTurn = {
   customerOffer: number | null;
   officialLine: string;
   reply: string;
+  romanizedReply?: string | null;
 };
 
 export type ShopkeeperGameState = {
@@ -30,6 +31,7 @@ export type ShopkeeperGameState = {
   status: "PLAYING" | "DEAL" | "NO_DEAL";
   finalPrice: number | null;
   openingReply: string;
+  openingRomanized?: string | null;
   transcript: ShopkeeperTurn[];
   updatedAt: number;
 };
@@ -48,6 +50,7 @@ export type PublicShopkeeperGame = {
   status: ShopkeeperGameState["status"];
   finalPrice: number | null;
   openingReply: string;
+  openingRomanized?: string | null;
   maxPrice?: number;
   realizedProfit?: number;
   availableSurplus?: number;
@@ -111,7 +114,7 @@ export function publicShopkeeperGame(game: ShopkeeperGameState): PublicShopkeepe
     buyer: { name: game.buyer.name, avatar: game.buyer.avatar, language: game.buyer.language, ...(finished ? { style: game.buyer.style } : {}) },
     initialOffer: game.buyer.initialOffer,
     currentOffer: game.currentOffer, round: game.round, maxRounds: MAX_ROUNDS, status: game.status,
-    finalPrice: game.finalPrice, openingReply: game.openingReply,
+    finalPrice: game.finalPrice, openingReply: game.openingReply, openingRomanized: game.openingRomanized ?? null,
     ...(finished ? { maxPrice: game.buyer.maxPrice, realizedProfit, availableSurplus,
       surplusCapturedPercent: availableSurplus === 0 || game.finalPrice === null ? 0 : Math.max(0, Math.min(100, Math.round(100 * realizedProfit / availableSurplus))) } : {}),
   };

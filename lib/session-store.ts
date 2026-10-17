@@ -65,13 +65,20 @@ export async function commitSession(snapshot: SessionSnapshot, next: StoredGame)
   return true;
 }
 
-export async function replaceReply(id: string, round: number, reply: string): Promise<boolean> {
+export async function replaceReply(id: string, round: number, reply: string, romanizedReply: string | null = null): Promise<boolean> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const snapshot = await readSession(id);
     if (!snapshot) return false;
-    const turn = snapshot.game.transcript?.find((item) => item.round === round);
-    if (!turn) return false;
-    turn.reply = reply;
+    if ("mode" in snapshot.game && snapshot.game.mode === "shopkeeper") {
+      const turn = snapshot.game.transcript.find((item) => item.round === round);
+      if (!turn) return false;
+      turn.reply = reply;
+      turn.romanizedReply = romanizedReply;
+    } else {
+      const turn = snapshot.game.transcript?.find((item) => item.round === round);
+      if (!turn) return false;
+      turn.reply = reply;
+    }
     if (await commitSession(snapshot, snapshot.game)) return true;
   }
   return false;

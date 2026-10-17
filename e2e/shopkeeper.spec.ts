@@ -27,9 +27,17 @@ test("shopkeeper sets a price, bargains, sees the hidden budget, and resumes the
   await page.getByLabel("Your message").fill(hindiMessage);
   const counterResponse = page.waitForResponse((response) => response.url().endsWith("/api/shopkeeper/turn") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Counteroffer" }).click();
-  const counter = await (await counterResponse).json();
+  const misunderstood = await counterResponse;
+  expect(misunderstood.status()).toBe(422);
+  await expect(page.getByRole("status")).toContainText("don't know Hindi");
+  await expect(page.getByRole("status")).toContainText("No round used");
+  await expect(page.getByText("Round 1 of 6")).toBeVisible();
+  await page.getByLabel("Your message").fill("This kettle is handmade. I can offer it today.");
+  const retryResponse = page.waitForResponse((response) => response.url().endsWith("/api/shopkeeper/turn") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Counteroffer" }).click();
+  const counter = await (await retryResponse).json();
   expect(counter.turn.decision).not.toBe("ACCEPT");
-  expect(counter.turn.message).toBe(hindiMessage);
+  expect(counter.turn.message).toBe("This kettle is handmade. I can offer it today.");
   game = counter.game;
   expect(game.maxPrice).toBeUndefined();
 
