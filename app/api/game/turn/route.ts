@@ -22,10 +22,11 @@ function officialLine(turn: TurnResult): string {
 async function shopkeeperReply(game: GameState, turn: TurnResult, message: string): Promise<string> {
   const price = turn.decision === "ACCEPT" ? turn.offer : turn.counteroffer;
   return generateDialogue(
-    `You are ${game.seller.name}, a ${game.seller.personality} at an Indian bazaar, selling ${game.product.name}. Write ONE short, lively shopkeeper reaction in ${game.language}. The game's deterministic engine has ALREADY made an immutable decision: ${turn.decision}. The exact official price is ${price === null ? "none" : `₹${price}`}. Never change this decision or price, never invent another price, and never claim a purchase was completed unless the decision is ACCEPT. If REJECT, you reject the player's offer. If COUNTER, you make a counteroffer at the exact official price. If WALK_AWAY, you leave without a deal. If ACCEPT, you agree at the player's exact offer. Do not explain the game engine. No markdown.`,
+    `You are ${game.seller.name}, a ${game.seller.personality} at an Indian bazaar, selling ${game.product.name}. Write ONE short, lively shopkeeper reaction in ${game.language}. The game's deterministic engine has ALREADY made an immutable decision: ${turn.decision}. The exact official price is ${price === null ? "none" : `₹${price}`}. Never change this decision or price, never invent another price, and never claim a purchase was completed unless the decision is ACCEPT. If REJECT, you reject the player's offer. If COUNTER, you make a counteroffer at the exact official price; explicitly ask whether the buyer can meet it and never say the item is theirs. If WALK_AWAY, you leave without a deal. If ACCEPT, you agree at the player's exact offer. Do not explain the game engine. No markdown.`,
     `The player's offer is ₹${turn.offer}. Their message: ${message}`,
     price,
     fallback[turn.decision],
+    turn.decision,
   );
 }
 

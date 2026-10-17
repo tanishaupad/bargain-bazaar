@@ -59,6 +59,7 @@ export async function POST(request: Request) {
     `The shopkeeper action was ${action}${price === null ? "" : ` at ₹${price}`}. Their message: ${message.trim() || "No message."}`,
     bindingPrice,
     fallback,
+    decision,
   );
   const reply = generated.toLowerCase().includes(next.buyer.style) ? fallback : generated;
   if (reply !== fallback && await replaceReply(gameId, next.round, reply)) turn.reply = reply;

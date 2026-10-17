@@ -200,9 +200,9 @@ export function playTurn(game: GameState, offer: number): TurnResult {
     } else {
       decision = "COUNTER";
       reason = "COUNTERED";
-      // Seller concessions shrink the gap while never crossing their minimum.
+      // A counter must remain above the offer; otherwise it reads as an acceptance.
       const concessionGap = game.currentPrice - Math.max(offer, game.reservationPrice);
-      const target = Math.max(game.reservationPrice, roundToTen(game.currentPrice - concessionGap * strategy.concession));
+      const target = Math.max(game.reservationPrice, offer + 10, roundToTen(game.currentPrice - concessionGap * strategy.concession));
       game.currentPrice = Math.min(game.currentPrice, target);
       counteroffer = game.currentPrice;
     }
