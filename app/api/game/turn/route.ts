@@ -1,5 +1,5 @@
-import { SarvamAIClient } from "sarvamai";
 import { playTurn, publicGame, type Decision, type GameState, type TurnResult } from "@/lib/game";
+import { generateDialogue } from "@/lib/sarvam-dialogue";
 import { commitSession, readSession, replaceReply } from "@/lib/session-store";
 import { limitGlobalTurns, limitRequest } from "@/lib/rate-limit";
 
@@ -20,28 +20,13 @@ function officialLine(turn: TurnResult): string {
 }
 
 async function shopkeeperReply(game: GameState, turn: TurnResult, message: string): Promise<string> {
-  const key = process.env.SARVAM_API_KEY;
-  if (!key) return fallback[turn.decision];
   const price = turn.decision === "ACCEPT" ? turn.offer : turn.counteroffer;
-  try {
-    const client = new SarvamAIClient({ apiSubscriptionKey: key });
-    const result = await client.chat.completions({
-      model: "sarvam-105b-conversations",
-      messages: [
-        { role: "system", content: `You are ${game.seller.name}, a ${game.seller.personality} at an Indian bazaar, selling ${game.product.name}. Write ONE short, lively shopkeeper reaction in ${game.language}. The game's deterministic engine has ALREADY made an immutable decision: ${turn.decision}. The exact official price is ${price === null ? "none" : `₹${price}`}. Never change this decision or price, never invent another price, and never claim a purchase was completed unless the decision is ACCEPT. If REJECT, you reject the player's offer. If COUNTER, you make a counteroffer at the exact official price. If WALK_AWAY, you leave without a deal. If ACCEPT, you agree at the player's exact offer. Do not explain the game engine. No markdown.` },
-        { role: "user", content: `The player's offer is ₹${turn.offer}. Their message: ${message}` },
-      ],
-    });
-    const reply = result.choices[0]?.message.content?.trim();
-    if (!reply) return fallback[turn.decision];
-    // A reply containing an unexpected numeral can misstate the binding price.
-    const numerals = reply.match(/[0-9०-९০-৯௦-௯౦-౯]+/g) ?? [];
-    if (numerals.some((value) => value !== String(price))) return fallback[turn.decision];
-    return reply.slice(0, 300);
-  } catch (error) {
-    console.error("Sarvam shopkeeper reply failed:", error);
-    return fallback[turn.decision];
-  }
+  return generateDialogue(
+    `You are ${game.seller.name}, a ${game.seller.personality} at an Indian bazaar, selling ${game.product.name}. Write ONE short, lively shopkeeper reaction in ${game.language}. The game's deterministic engine has ALREADY made an immutable decision: ${turn.decision}. The exact official price is ${price === null ? "none" : `₹${price}`}. Never change this decision or price, never invent another price, and never claim a purchase was completed unless the decision is ACCEPT. If REJECT, you reject the player's offer. If COUNTER, you make a counteroffer at the exact official price. If WALK_AWAY, you leave without a deal. If ACCEPT, you agree at the player's exact offer. Do not explain the game engine. No markdown.`,
+    `The player's offer is ₹${turn.offer}. Their message: ${message}`,
+    price,
+    fallback[turn.decision],
+  );
 }
 
 export async function POST(request: Request) {
@@ -60,6 +45,7 @@ export async function POST(request: Request) {
   const snapshot = await readSession(gameId);
   if (!snapshot) return Response.json({ error: "This market session expired. Start a new round." }, { status: 404 });
   const game = snapshot.game;
+  if ("mode" in game) return Response.json({ error: "This is a shopkeeper session." }, { status: 404 });
   if (game.round !== expectedRound || game.status !== "PLAYING") {
     return Response.json({ error: "This negotiation changed in another tab. The latest state has been loaded.", game: publicGame(game), turns: game.transcript ?? [] }, { status: 409 });
   }
@@ -73,7 +59,7 @@ export async function POST(request: Request) {
   next.transcript.push(completedTurn);
   if (!await commitSession(snapshot, next)) {
     const current = await readSession(gameId);
-    return Response.json({ error: "This negotiation changed in another tab. The latest state has been loaded.", game: current && publicGame(current.game), turns: current?.game.transcript ?? [] }, { status: 409 });
+    return Response.json({ error: "This negotiation changed in another tab. The latest state has been loaded.", game: current && !("mode" in current.game) ? publicGame(current.game) : null, turns: current?.game.transcript ?? [] }, { status: 409 });
   }
   const reply = await shopkeeperReply(next, turn, completedTurn.message);
   if (reply !== completedTurn.reply && await replaceReply(gameId, turn.round, reply)) completedTurn.reply = reply;

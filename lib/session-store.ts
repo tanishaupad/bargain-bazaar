@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import type { GameState } from "./game";
+import type { ShopkeeperGameState } from "./shopkeeper-game";
 import { getGame, pruneGames, saveGame } from "./game-store.ts";
 
 const ttlSeconds = 2 * 60 * 60;
@@ -11,7 +12,8 @@ redis.call("SET", KEYS[1], ARGV[2], "EX", ARGV[3])
 return 1
 `;
 
-export type SessionSnapshot = { game: GameState; raw: string };
+export type StoredGame = GameState | ShopkeeperGameState;
+export type SessionSnapshot = { game: StoredGame; raw: string };
 let client: Redis | null = null;
 
 export function sharedRedis(): Redis | null {
@@ -29,7 +31,7 @@ export function sharedRedis(): Redis | null {
 
 const keyFor = (id: string) => `bargain-bazaar:game:${id}`;
 
-export async function createSession(game: GameState) {
+export async function createSession(game: StoredGame) {
   const redis = sharedRedis();
   if (redis) {
     const result = await redis.set(keyFor(game.id), JSON.stringify(game), { ex: ttlSeconds, nx: true });
@@ -45,13 +47,13 @@ export async function readSession(id: string): Promise<SessionSnapshot | null> {
   const redis = sharedRedis();
   if (redis) {
     const raw = await redis.get<string>(keyFor(id));
-    return raw ? { game: JSON.parse(raw) as GameState, raw } : null;
+    return raw ? { game: JSON.parse(raw) as StoredGame, raw } : null;
   }
   const game = await getGame(id);
   return game ? { game, raw: JSON.stringify(game) } : null;
 }
 
-export async function commitSession(snapshot: SessionSnapshot, next: GameState): Promise<boolean> {
+export async function commitSession(snapshot: SessionSnapshot, next: StoredGame): Promise<boolean> {
   const redis = sharedRedis();
   if (redis) {
     const result = await redis.eval<[string, string, number], number>(compareAndSetScript, [keyFor(next.id)], [snapshot.raw, JSON.stringify(next), ttlSeconds]);

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import type { Decision, GameTurn, Language, PublicGame } from "@/lib/game";
 import ReplayPanel from "./replay-panel";
 import StrategyPanel from "./strategy-panel";
+import ModeTabs from "./mode-tabs";
 
 const languages: { value: Language; label: string; hint: string }[] = [
   { value: "English", label: "English", hint: "Hello!" },
@@ -137,6 +138,8 @@ export default function Home() {
         <div className="flex items-center gap-3"><div className="font-display grid size-12 place-items-center rounded-xl bg-[#a9492d] text-2xl font-black text-[#f5f3e9]">ब</div><div><p className="text-[10px] font-black uppercase tracking-[.25em] text-[#8a5135]">The marketplace game</p><h1 className="font-display text-2xl font-black leading-tight sm:text-3xl">Bargain Bazaar</h1></div></div>
         <div className="flex items-center gap-2 rounded-full border border-[#cad5d1] bg-white px-4 py-2 text-xs font-bold text-[#50646a]"><span className="size-2 rounded-full bg-emerald-500" /> SIX ROUNDS · ONE GOOD DEAL</div>
       </header>
+
+      <ModeTabs active="customer" />
 
       {!game ? <div className="mt-8 grid gap-8 lg:grid-cols-[1.15fr_.85fr] lg:items-center">
         <section className="rounded-2xl border border-[#c8d3cf] bg-[#fbfcf9] p-6 shadow-[0_16px_40px_#233f3a0c] sm:p-10">

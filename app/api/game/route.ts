@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   if (!id) return Response.json({ error: "A game id is required." }, { status: 400 });
   const session = await readSession(id);
   if (!session) return Response.json({ error: "This market session expired. Start a new round." }, { status: 404 });
+  if ("mode" in session.game) return Response.json({ error: "This is a shopkeeper session." }, { status: 404 });
   return Response.json({ game: publicGame(session.game), turns: session.game.transcript ?? [] });
 }
 

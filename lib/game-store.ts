@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { GameState } from "./game";
+import type { ShopkeeperGameState } from "./shopkeeper-game";
+
+type StoredGame = GameState | ShopkeeperGameState;
 
 const directory = join(process.cwd(), ".data", "games");
 const lifetime = 2 * 60 * 60 * 1000;
@@ -13,7 +16,7 @@ function pathFor(id: string) {
   return join(directory, `${id}.json`);
 }
 
-export async function saveGame(game: GameState) {
+export async function saveGame(game: StoredGame) {
   const path = pathFor(game.id);
   if (!path) throw new Error("Invalid game id");
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -27,11 +30,11 @@ export async function saveGame(game: GameState) {
   }
 }
 
-export async function getGame(id: string): Promise<GameState | null> {
+export async function getGame(id: string): Promise<StoredGame | null> {
   const path = pathFor(id);
   if (!path) return null;
   try {
-    const game = JSON.parse(await readFile(path, "utf8")) as GameState;
+    const game = JSON.parse(await readFile(path, "utf8")) as StoredGame;
     if (game.id !== id || !Number.isFinite(game.updatedAt)) return null;
     if (game.updatedAt < Date.now() - lifetime) {
       await unlink(path).catch(() => {});
