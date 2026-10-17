@@ -74,7 +74,6 @@ export type GameState = {
   lastOffer: number | null;
   history: ReplayStep[];
   transcript: GameTurn[];
-  processing: boolean;
   updatedAt: number;
 };
 
@@ -116,7 +115,7 @@ export function createGame(language: Language, previousSeller?: string): GameSta
   return {
     id: randomUUID(), product, seller, language, askingPrice, reservationPrice, buyerValue,
     currentPrice: askingPrice, initialPatience: patience, patience, round: 0,
-    status: "PLAYING", finalPrice: null, lastOffer: null, history: [], transcript: [], processing: false, updatedAt: Date.now(),
+    status: "PLAYING", finalPrice: null, lastOffer: null, history: [], transcript: [], updatedAt: Date.now(),
   };
 }
 

@@ -19,7 +19,7 @@ export async function saveGame(game: GameState) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const temporary = join(directory, `${game.id}.${randomUUID()}.tmp`);
   try {
-    await writeFile(temporary, JSON.stringify({ ...game, processing: false }), { mode: 0o600 });
+    await writeFile(temporary, JSON.stringify(game), { mode: 0o600 });
     await rename(temporary, path);
   } catch (error) {
     await unlink(temporary).catch(() => {});

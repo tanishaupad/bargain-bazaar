@@ -1,6 +1,7 @@
 import { SarvamAIClient } from "sarvamai";
 import { playTurn, publicGame, type Decision, type GameState, type TurnResult } from "@/lib/game";
-import { getGame, lockGame, saveGame, unlockGame } from "@/lib/game-store";
+import { commitSession, readSession, replaceReply } from "@/lib/session-store";
+import { limitGlobalTurns, limitRequest } from "@/lib/rate-limit";
 
 const fallback: Record<Decision, string> = {
   ACCEPT: "You have a deal! I hope you enjoy it.",
@@ -48,25 +49,33 @@ export async function POST(request: Request) {
   try { body = await request.json(); }
   catch { return Response.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body || typeof body !== "object") return Response.json({ error: "Invalid request." }, { status: 400 });
-  const { gameId, offer, message } = body as { gameId?: unknown; offer?: unknown; message?: unknown };
+  const { gameId, offer, message, expectedRound } = body as { gameId?: unknown; offer?: unknown; message?: unknown; expectedRound?: unknown };
   if (typeof gameId !== "string" || typeof offer !== "number" || !Number.isInteger(offer) || offer < 1 || offer > 100000 ||
-      typeof message !== "string" || message.trim().length < 1 || message.trim().length > 280) {
+      typeof message !== "string" || message.trim().length < 1 || message.trim().length > 280 ||
+      typeof expectedRound !== "number" || !Number.isInteger(expectedRound) || expectedRound < 0 || expectedRound >= 6) {
     return Response.json({ error: "Enter a whole rupee offer and a short message." }, { status: 400 });
   }
-  if (!lockGame(gameId)) return Response.json({ error: "The shopkeeper is still answering." }, { status: 409 });
-  try {
-    const game = await getGame(gameId);
-    if (!game) return Response.json({ error: "This market session expired. Start a new round." }, { status: 404 });
-    if (game.status !== "PLAYING") return Response.json({ error: "This round is already finished." }, { status: 409 });
-    if (offer > game.buyerValue) return Response.json({ error: "That offer exceeds your walk-away value." }, { status: 400 });
-    const turn = playTurn(game, offer);
-    const reply = await shopkeeperReply(game, turn, message.trim());
-    const completedTurn = { ...turn, officialLine: officialLine(turn), reply, message: message.trim() };
-    game.transcript ??= [];
-    game.transcript.push(completedTurn);
-    await saveGame(game);
-    return Response.json({ game: publicGame(game), turn: completedTurn });
-  } finally {
-    unlockGame(gameId);
+  const limited = await limitRequest(request, "turn");
+  if (limited) return limited;
+  const snapshot = await readSession(gameId);
+  if (!snapshot) return Response.json({ error: "This market session expired. Start a new round." }, { status: 404 });
+  const game = snapshot.game;
+  if (game.round !== expectedRound || game.status !== "PLAYING") {
+    return Response.json({ error: "This negotiation changed in another tab. The latest state has been loaded.", game: publicGame(game), turns: game.transcript ?? [] }, { status: 409 });
   }
+  if (offer > game.buyerValue) return Response.json({ error: "That offer exceeds your walk-away value." }, { status: 400 });
+  const globallyLimited = await limitGlobalTurns();
+  if (globallyLimited) return globallyLimited;
+  const next = structuredClone(game);
+  const turn = playTurn(next, offer);
+  const completedTurn = { ...turn, officialLine: officialLine(turn), reply: fallback[turn.decision], message: message.trim() };
+  next.transcript ??= [];
+  next.transcript.push(completedTurn);
+  if (!await commitSession(snapshot, next)) {
+    const current = await readSession(gameId);
+    return Response.json({ error: "This negotiation changed in another tab. The latest state has been loaded.", game: current && publicGame(current.game), turns: current?.game.transcript ?? [] }, { status: 409 });
+  }
+  const reply = await shopkeeperReply(next, turn, completedTurn.message);
+  if (reply !== completedTurn.reply && await replaceReply(gameId, turn.round, reply)) completedTurn.reply = reply;
+  return Response.json({ game: publicGame(next), turn: completedTurn });
 }

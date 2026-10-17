@@ -102,9 +102,14 @@ export default function Home() {
     try {
       const response = await fetch("/api/game/turn", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId: game.id, offer: amount, message: words }),
+        body: JSON.stringify({ gameId: game.id, offer: amount, message: words, expectedRound: game.round }),
       });
       const data = await response.json();
+      if (response.status === 409 && data.game) {
+        setGame(data.game);
+        setTurns(data.turns ?? []);
+        throw new Error(data.error || "This negotiation changed. Please review the latest turn.");
+      }
       if (!response.ok) throw new Error(data.error || "The turn could not be played.");
       setGame(data.game);
       setTurns((current) => [...current, { ...data.turn, message: words }]);
