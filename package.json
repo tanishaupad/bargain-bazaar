@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test lib/*.test.mjs"
+    "test": "node --experimental-strip-types --test lib/*.test.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@upstash/redis": "^1.39.0",
@@ -17,6 +18,7 @@
     "sarvamai": "^1.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",

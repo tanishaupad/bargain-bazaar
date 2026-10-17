@@ -18,4 +18,4 @@ With `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` configured, game se
 
 Create an Upstash Redis database and set `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and `SARVAM_API_KEY` as server-side environment variables on the Next.js host. Deploy the repository as a Next.js application. The API limits new games to 10 per hour per visitor and turns to 60 per hour per visitor plus a global cap of 300 turns per hour. On Vercel, visitor identity uses its trusted forwarded-IP header; on other hosts, the conservative anonymous limit applies until a trusted proxy identity is configured. A production deployment without Redis credentials fails instead of writing session state to ephemeral local disk.
 
-Run `npm run test`, `npm run lint`, and `npm run build` to check the game.
+Run `npm run lint`, `npm run test`, and `npm run build` to check the game. For browser tests, run `npx playwright install chromium` once, then `npm run test:e2e` after building. The Playwright server uses a separate port and local session store with no Sarvam key, so tests do not consume API credits. GitHub Actions runs all four checks on pushes and pull requests.
