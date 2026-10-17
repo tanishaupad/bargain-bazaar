@@ -1,36 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bargain Bazaar
 
-## Getting Started
+A playable multilingual bargaining game built with Next.js, TypeScript, Tailwind CSS, and the official `sarvamai` JavaScript SDK.
 
-First, run the development server:
+## Run locally
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies with `npm install`.
+2. Copy `.env.example` to `.env.local` and add your Sarvam API key.
+3. Start the app with `npm run dev` and open [http://localhost:3000](http://localhost:3000).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Choose English, Hindi, Hinglish, Telugu, Tamil, or Bengali. Each new game picks from 10 products and randomizes the seller, asking price, hidden seller minimum, buyer value, and patience. You know your own value, which is the most you may offer; the seller does not. Enter a whole-rupee offer plus a message on each turn. A deterministic server-side engine decides whether the seller accepts, rejects, counters, or walks away. Seller styles change acceptance thresholds, lowball tolerance, and concession size. Games last at most six rounds. The final card reveals the transaction price, buyer payoff (`buyer value − price`), seller payoff (`price − seller minimum`), and the seller's minimum. A post-game strategy report scores the buyer's captured surplus and explains one concrete bargaining opportunity. A replay shows every offer, private acceptance threshold, counteroffer, patience change, and decision rule; both stay hidden during negotiation.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The browser calls `POST /api/game` to start, `POST /api/game/turn` for each offer, and `GET /api/game?id=…` to restore a session after reload. The server calls Sarvam's `sarvam-105b-conversations` model only to phrase the shopkeeper's reply. The engine owns the decision and price. The API key stays in `.env.local` and is never sent to the browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Game sessions and chat transcripts are saved as private JSON files under the ignored `.data/games` directory. The browser keeps only the random session ID. A reload or restart on the same machine restores the game for two hours after its last turn. This local file store is intended for one server process with a persistent writable disk; multi-instance or serverless deployment needs a shared store. No database, login, voice, or payment flow is included. If Sarvam is unavailable, the engine still completes each turn with a short fallback reply.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run `npm run test`, `npm run lint`, and `npm run build` to check the game.

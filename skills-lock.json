@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "chat": {
+      "source": "sarvamai/skills",
+      "sourceType": "github",
+      "skillPath": "chat/SKILL.md",
+      "computedHash": "f84f7dcd45f942ba2e2d307ec3d6495efd3cef87cd798e3355570a2118eabc5c"
+    }
+  }
+}
