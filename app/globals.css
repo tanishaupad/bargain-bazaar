@@ -2,8 +2,8 @@
 
 :root { color-scheme: light; }
 body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
-.font-display { font-family: Georgia, "Times New Roman", serif; }
-.bazaar { background: radial-gradient(circle at 9% 20%, #ffd792 0, transparent 28%), radial-gradient(circle at 88% 10%, #f6baa0 0, transparent 26%), #f7e7c8; }
+.font-display { font-family: Georgia, "Times New Roman", serif; letter-spacing: -.035em; }
+.bazaar { background: radial-gradient(circle at 87% 3%, #cbd7d4 0, transparent 27%), linear-gradient(135deg, #e5ebe9, #f1f2ed 55%, #e8ebe7); }
 .bazaar-lights { height: 16px; background: repeating-linear-gradient(90deg, #c84728 0 36px, #f1ae42 36px 72px, #31725f 72px 108px, #fff0cc 108px 144px); border-bottom: 4px solid #743624; }
-.bazaar-awning { background: repeating-linear-gradient(90deg, #fff4d8 0 30px, #bb3f27 30px 60px); border-bottom: 4px solid #873321; }
+.bazaar-awning { background: repeating-linear-gradient(90deg, #e2b971 0 26px, #263c41 26px 52px); border-bottom: 3px solid #1f3439; }
 .chat-scroll { scroll-behavior: smooth; }
