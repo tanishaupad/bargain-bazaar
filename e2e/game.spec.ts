@@ -33,6 +33,8 @@ test("plays a deal, restores it after reload, and starts a new stall", async ({ 
   await offer(1);
   expect(game.round).toBe(1);
   await page.reload();
+  await expect(page.getByRole("heading", { name: /A good bargain starts with a conversation/ })).toBeVisible();
+  await page.getByRole("button", { name: /Continue game/ }).click();
   await expect(page.getByText("You offered ₹1")).toBeVisible();
   await expect(page.getByText("Hidden minimum")).toHaveCount(0);
 
@@ -49,6 +51,8 @@ test("plays a deal, restores it after reload, and starts a new stall", async ({ 
   await expect(page.getByText("The seller’s minimum and strategy are revealed in your results.")).toBeVisible();
 
   await page.reload();
+  await expect(page.getByRole("heading", { name: /A good bargain starts with a conversation/ })).toBeVisible();
+  await page.getByRole("button", { name: /View result/ }).click();
   await expect(page.getByText("Deal price").locator("..")).toContainText(price);
   await expect(page.getByText("Hidden minimum")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });

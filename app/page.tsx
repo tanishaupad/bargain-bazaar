@@ -41,6 +41,7 @@ export default function Home() {
   const [language, setLanguage] = useState<Language>("Hinglish");
   const [game, setGame] = useState<PublicGame | null>(null);
   const [turns, setTurns] = useState<GameTurn[]>([]);
+  const [savedSession, setSavedSession] = useState<{ game: PublicGame; turns: GameTurn[] } | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [offer, setOffer] = useState("");
   const [message, setMessage] = useState("");
@@ -63,7 +64,7 @@ export default function Home() {
         }
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not restore your game.");
-        if (active) { setGame(data.game); setTurns(data.turns); setLanguage(data.game.language); }
+        if (active) setSavedSession({ game: data.game, turns: data.turns ?? [] });
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "Could not restore your game.");
       } finally {
@@ -74,17 +75,26 @@ export default function Home() {
     return () => { active = false; };
   }, []);
 
+  function continueGame() {
+    if (!savedSession) return;
+    setGame(savedSession.game);
+    setTurns(savedSession.turns);
+    setLanguage(savedSession.game.language);
+    setSavedSession(null);
+    setError("");
+  }
+
   async function startGame() {
     if (busy || restoring) return;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/game", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, previousSeller: game?.seller.name }),
+        body: JSON.stringify({ language, previousSeller: game?.seller.name ?? savedSession?.game.seller.name }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not open the stall.");
-      setGame(data.game); setTurns([]); setOffer(""); setMessage("");
+      setGame(data.game); setTurns([]); setSavedSession(null); setOffer(""); setMessage("");
       window.localStorage.setItem(sessionKey, data.game.id);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Something went wrong."); }
     finally { setBusy(false); }
@@ -135,7 +145,8 @@ export default function Home() {
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#52666a]">Meet a new shopkeeper, make your offer, and charm your way to a deal. Every stall has its own price, personality, and patience.</p>
           <div className="mt-8"><p className="mb-3 text-xs font-black uppercase tracking-[.18em] text-[#855a44]">Choose your conversation</p><div className="flex flex-wrap gap-2">{languages.map((item) => <button key={item.value} type="button" onClick={() => setLanguage(item.value)} aria-pressed={language === item.value} className={`rounded-full border px-4 py-2 text-sm font-bold transition ${language === item.value ? "border-[#a9492d] bg-[#a9492d] text-white shadow-md" : "border-[#cbd5d2] bg-white hover:border-[#a9492d]"}`}>{item.label}</button>)}</div><p className="mt-3 text-sm text-[#61757a]">{languages.find((item) => item.value === language)?.hint} · You can write in your own words.</p></div>
           {error && <p role="alert" className="mt-4 font-medium text-red-700">{error}</p>}
-          <button onClick={startGame} disabled={busy || restoring} className="mt-8 rounded-2xl bg-[#a9492d] px-8 py-4 text-lg font-black text-white shadow-[0_6px_0_#753824] transition hover:-translate-y-0.5 disabled:opacity-60">{restoring ? "Restoring your game…" : busy ? "Opening a stall…" : "Enter the bazaar →"}</button>
+          {savedSession && <div className="mt-7 rounded-xl border border-[#bdcbc5] bg-[#eef3ef] p-4"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#506b65]">Your last visit</p><p className="font-display mt-1 text-lg font-bold">{savedSession.game.status === "PLAYING" ? `Round ${savedSession.game.round + 1} with ${savedSession.game.seller.name}` : `Your result with ${savedSession.game.seller.name}`}</p><button onClick={continueGame} className="mt-3 text-sm font-bold text-[#8e422d] underline underline-offset-4 hover:text-[#692d1e]">{savedSession.game.status === "PLAYING" ? "Continue game →" : "View result →"}</button></div>}
+          <button onClick={startGame} disabled={busy || restoring} className="mt-8 rounded-2xl bg-[#a9492d] px-8 py-4 text-lg font-black text-white shadow-[0_6px_0_#753824] transition hover:-translate-y-0.5 disabled:opacity-60">{busy ? "Opening a stall…" : savedSession ? "Start a new game →" : "Enter the bazaar →"}</button>
         </section>
         <aside className="relative overflow-hidden rounded-2xl border border-[#263b40] bg-[#344e52] p-7 text-[#f5f3e9] shadow-[0_18px_0_#263b4016] sm:p-10">
           <div className="absolute inset-x-0 top-0 h-7 bazaar-awning" />
