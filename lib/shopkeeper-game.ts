@@ -22,6 +22,7 @@ export type ShopkeeperGameState = {
   product: (typeof CATALOG)[number];
   purchaseCost: number;
   listingPrice: number;
+  allowedLanguages: Language[];
   buyer: { name: string; avatar: string; style: BuyerStyle; language: Language; maxPrice: number; initialOffer: number; patience: number; tactic: string };
   currentOffer: number;
   patience: number;
@@ -78,18 +79,20 @@ export function customerCue(game: ShopkeeperGameState): string {
   return game.round >= 2 ? "I like it, but I need to think about the value before spending more." : "I like the item, but I am watching what I spend.";
 }
 
-export function createShopkeeperGame(productId: string, listingPrice: number): ShopkeeperGameState {
+export function createShopkeeperGame(productId: string, listingPrice: number, allowedLanguages: readonly Language[]): ShopkeeperGameState {
   const product = CATALOG.find((item) => item.id === productId);
   const purchaseCost = purchaseCostFor(productId);
   if (!product || purchaseCost === null || !Number.isInteger(listingPrice) || listingPrice < purchaseCost + 10 || listingPrice > 100000) throw new Error("Choose a product and a listing price above its cost.");
+  if (!Array.isArray(allowedLanguages) || allowedLanguages.length === 0 || allowedLanguages.some((language) => !LANGUAGES.includes(language))) throw new Error("Choose at least one supported customer language.");
+  const languagePool = [...new Set(allowedLanguages)];
   const name = BUYERS[random(0, BUYERS.length - 1)];
   const maxPrice = roundTen(Math.max(purchaseCost + 40, product.base * random(82, 125) / 100));
   const initialOffer = Math.max(10, Math.min(maxPrice - 10, roundTen(Math.min(listingPrice * random(58, 73) / 100, maxPrice * random(58, 73) / 100))));
   const style = STYLES[random(0, STYLES.length - 1)];
-  const language = LANGUAGES[random(0, LANGUAGES.length - 1)];
+  const language = languagePool[random(0, languagePool.length - 1)];
   const buyer = { ...name, style, language, maxPrice, initialOffer, patience: random(2, 5), tactic: style };
   const game: ShopkeeperGameState = {
-    mode: "shopkeeper", id: randomUUID(), product, purchaseCost, listingPrice, buyer,
+    mode: "shopkeeper", id: randomUUID(), product, purchaseCost, listingPrice, allowedLanguages: languagePool, buyer,
     currentOffer: initialOffer, patience: buyer.patience, round: 0, status: "PLAYING",
     finalPrice: null, openingReply: "", transcript: [], updatedAt: Date.now(),
   };

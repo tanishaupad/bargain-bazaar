@@ -3,15 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import ModeTabs from "../mode-tabs";
 import type { PublicShopkeeperGame, ShopkeeperAction, ShopkeeperTurn } from "@/lib/shopkeeper-game";
+import type { Language } from "@/lib/game";
 
 type CatalogItem = { id: string; name: string; category: string; emoji: string; detail: string; purchaseCost: number; suggestedListing: number };
 const sessionKey = "bargain-bazaar-shopkeeper-id";
+const languageKey = "bargain-bazaar-shopkeeper-languages";
 const rupees = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const languageOptions: { value: Language; label: string }[] = [
+  { value: "English", label: "English" }, { value: "Hindi", label: "हिन्दी" },
+  { value: "Hinglish", label: "Hinglish" }, { value: "Telugu", label: "తెలుగు" },
+  { value: "Tamil", label: "தமிழ்" }, { value: "Bengali", label: "বাংলা" },
+];
 
 export default function ShopkeeperPage() {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [listingPrice, setListingPrice] = useState("");
+  const [allowedLanguages, setAllowedLanguages] = useState<Language[]>(["English"]);
   const [game, setGame] = useState<PublicShopkeeperGame | null>(null);
   const [turns, setTurns] = useState<ShopkeeperTurn[]>([]);
   const [saved, setSaved] = useState<{ game: PublicShopkeeperGame; turns: ShopkeeperTurn[] } | null>(null);
@@ -27,6 +35,13 @@ export default function ShopkeeperPage() {
     let active = true;
     async function load() {
       try {
+        let previousLanguages: unknown;
+        try { previousLanguages = JSON.parse(window.localStorage.getItem(languageKey) || "null"); }
+        catch { previousLanguages = null; }
+        if (active && Array.isArray(previousLanguages)) {
+          const valid = languageOptions.map((item) => item.value).filter((value) => previousLanguages.includes(value));
+          if (valid.length) setAllowedLanguages(valid);
+        }
         const response = await fetch("/api/shopkeeper", { cache: "no-store" });
         if (!response.ok) throw new Error("Could not load the market catalog.");
         const data = await response.json() as { catalog: CatalogItem[] };
@@ -48,15 +63,22 @@ export default function ShopkeeperPage() {
   const selected = catalog.find((item) => item.id === selectedId);
 
   function chooseProduct(item: CatalogItem) { setSelectedId(item.id); setListingPrice(String(item.suggestedListing)); setError(""); }
+  function toggleLanguage(language: Language) {
+    const next = allowedLanguages.includes(language) ? allowedLanguages.filter((item) => item !== language) : [...allowedLanguages, language];
+    setAllowedLanguages(next);
+    window.localStorage.setItem(languageKey, JSON.stringify(next));
+    setError("");
+  }
   function continueSaved() { if (!saved) return; setGame(saved.game); setTurns(saved.turns); setSaved(null); setError(""); }
 
   async function startGame() {
     if (!selected || busy) return;
     const price = Number(listingPrice);
+    if (!allowedLanguages.length) { setError("Choose at least one customer language."); return; }
     if (!Number.isInteger(price) || price < selected.purchaseCost + 10 || price > 100000) { setError(`List above your cost of ${rupees(selected.purchaseCost)} in whole rupees.`); return; }
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/shopkeeper", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: selected.id, listingPrice: price }) });
+      const response = await fetch("/api/shopkeeper", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: selected.id, listingPrice: price, languages: allowedLanguages }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not open your stall.");
       setGame(data.game); setTurns([]); setSaved(null); setCounterPrice(""); setMessage("");
@@ -99,6 +121,7 @@ export default function ShopkeeperPage() {
           <h2 className="font-display mt-2 text-4xl font-black sm:text-5xl">Run your own stall.</h2>
           <p className="mt-3 max-w-2xl text-[#52666a]">Pick an item, set a listing price, and bargain with a customer whose budget you do not know. Listen closely: their story may shift as the rounds pass.</p>
           {saved && <div className="mt-6 rounded-xl border border-[#abc0b7] bg-[#e8f0ec] p-4"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#3d6558]">Your last stall</p><p className="font-display mt-1 text-xl font-bold">{saved.game.product.name} with {saved.game.buyer.name}</p><button onClick={continueSaved} className="mt-2 text-sm font-bold text-[#8e422d] underline underline-offset-4">{saved.game.status === "PLAYING" ? "Continue negotiation →" : "View result →"}</button></div>}
+          <fieldset className="mt-8"><legend className="text-xs font-black uppercase tracking-[.18em] text-[#855a44]">Customer languages you can bargain in</legend><p className="mt-2 text-sm text-[#61757a]">The next customer will speak one of your selections. English is selected by default.</p><div className="mt-3 flex flex-wrap gap-2">{languageOptions.map((item) => <button key={item.value} type="button" onClick={() => toggleLanguage(item.value)} aria-pressed={allowedLanguages.includes(item.value)} aria-label={item.value} className={`rounded-full border px-4 py-2 text-sm font-bold transition ${allowedLanguages.includes(item.value) ? "border-[#28464a] bg-[#28464a] text-white" : "border-[#cbd5d2] bg-white text-[#50646a] hover:border-[#28464a]"}`}>{item.label}</button>)}</div>{allowedLanguages.length === 0 && <p className="mt-2 text-sm font-semibold text-[#a9492d]">Select at least one language to open your stall.</p>}</fieldset>
           <h3 className="mt-8 text-xs font-black uppercase tracking-[.18em] text-[#855a44]">Choose a product</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{catalog.map((item) => <button key={item.id} type="button" onClick={() => chooseProduct(item)} aria-pressed={selectedId === item.id} className={`flex min-h-28 items-center gap-3 rounded-xl border p-4 text-left transition ${selectedId === item.id ? "border-[#a9492d] bg-[#f6ebe2] ring-1 ring-[#a9492d]" : "border-[#d8e1dc] bg-white hover:border-[#a9492d]"}`}><span className="text-4xl" aria-hidden="true">{item.emoji}</span><span><span className="block font-display text-lg font-bold leading-tight">{item.name}</span><span className="mt-1 block text-xs text-[#61757a]">Cost {rupees(item.purchaseCost)}</span></span></button>)}</div>
         </section>
@@ -110,7 +133,7 @@ export default function ShopkeeperPage() {
           <div className="relative mt-2"><span className="absolute left-4 top-3.5 font-bold text-[#8e5d45]">₹</span><input id="listing-price" type="number" min={selected ? selected.purchaseCost + 10 : 1} max="100000" step="1" value={listingPrice} onChange={(event) => setListingPrice(event.target.value)} className="w-full rounded-lg border border-[#bdcbc5] bg-white px-4 py-3 pl-9 font-bold text-[#1e3035] outline-none focus:ring-2 focus:ring-[#d9bf94]" /></div>
           <p className="mt-3 text-xs leading-relaxed text-[#c3d2cb]">The customer opens with an offer. Their maximum and temperament stay hidden until the result.</p>
           {error && <p role="alert" className="mt-4 text-sm font-bold text-[#ffe0ca]">{error}</p>}
-          <button onClick={startGame} disabled={loading || busy || !selected} className="mt-6 w-full rounded-xl bg-[#d9bf94] px-4 py-3.5 font-black text-[#263b40] hover:bg-[#e7cfaa] disabled:opacity-50">{busy ? "Opening your stall…" : "Open my stall →"}</button>
+          <button onClick={startGame} disabled={loading || busy || !selected || allowedLanguages.length === 0} className="mt-6 w-full rounded-xl bg-[#d9bf94] px-4 py-3.5 font-black text-[#263b40] hover:bg-[#e7cfaa] disabled:opacity-50">{busy ? "Opening your stall…" : "Open my stall →"}</button>
         </aside>
       </div> : <div className="mt-7 grid gap-6 lg:grid-cols-[330px_minmax(0,1fr)]">
         <aside className="space-y-5">

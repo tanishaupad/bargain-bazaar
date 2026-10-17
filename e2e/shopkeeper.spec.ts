@@ -4,6 +4,11 @@ test("shopkeeper sets a price, bargains, sees the hidden budget, and resumes the
   await page.goto("/");
   await page.getByRole("link", { name: "Shopkeeper Mode" }).click();
   await expect(page.getByRole("heading", { name: "Run your own stall." })).toBeVisible();
+  await page.getByRole("button", { name: "English", exact: true }).click();
+  await page.getByRole("button", { name: "Telugu", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Telugu", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "English", exact: true })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("button", { name: /Brass chai kettle/ }).click();
   await page.getByLabel("Initial listing price").fill("1800");
 
@@ -11,17 +16,20 @@ test("shopkeeper sets a price, bargains, sees the hidden budget, and resumes the
   await page.getByRole("button", { name: /Open my stall/ }).click();
   let game = (await (await startResponse).json()).game;
   expect(game.status).toBe("PLAYING");
+  expect(game.buyer.language).toBe("Telugu");
   expect(game.buyer.style).toBeUndefined();
   expect(game.maxPrice).toBeUndefined();
   await expect(page.getByText("Customer maximum")).toHaveCount(0);
   await expect(page.getByText(`₹${game.initialOffer.toLocaleString("en-IN")}`, { exact: false }).first()).toBeVisible();
 
   await page.getByLabel("Your counter").fill("100000");
-  await page.getByLabel("Your message").fill("Other stalls charge more, and I have another customer waiting.");
+  const hindiMessage = "यह हाथ से बना है, आज ही ले जाइए।";
+  await page.getByLabel("Your message").fill(hindiMessage);
   const counterResponse = page.waitForResponse((response) => response.url().endsWith("/api/shopkeeper/turn") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Counteroffer" }).click();
   const counter = await (await counterResponse).json();
   expect(counter.turn.decision).not.toBe("ACCEPT");
+  expect(counter.turn.message).toBe(hindiMessage);
   game = counter.game;
   expect(game.maxPrice).toBeUndefined();
 
@@ -41,6 +49,13 @@ test("shopkeeper sets a price, bargains, sees the hidden budget, and resumes the
   await expect(page.getByText("Customer maximum")).toBeVisible();
   await page.getByRole("link", { name: "Customer Mode" }).click();
   await expect(page.getByRole("heading", { name: "Bargain Bazaar" })).toBeVisible();
+});
+
+test("shopkeeper API rejects unsupported customer languages", async ({ request }) => {
+  const invalid = await request.post("/api/shopkeeper", { data: { productId: "scarf", listingPrice: 800, languages: ["French"] } });
+  expect(invalid.status()).toBe(400);
+  const missing = await request.post("/api/shopkeeper", { data: { productId: "scarf", listingPrice: 800, languages: [] } });
+  expect(missing.status()).toBe(400);
 });
 
 test("shopkeeper can reject and walk away with zero realized profit", async ({ page }) => {

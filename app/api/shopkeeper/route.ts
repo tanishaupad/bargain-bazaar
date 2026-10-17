@@ -1,4 +1,5 @@
 import { catalogForShopkeeper, createShopkeeperGame, customerCue, publicShopkeeperGame } from "@/lib/shopkeeper-game";
+import { LANGUAGES, type Language } from "@/lib/game";
 import { generateDialogue } from "@/lib/sarvam-dialogue";
 import { commitSession, createSession, readSession } from "@/lib/session-store";
 import { limitRequest } from "@/lib/rate-limit";
@@ -16,12 +17,14 @@ export async function POST(request: Request) {
   try { body = await request.json(); }
   catch { return Response.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body || typeof body !== "object") return Response.json({ error: "Invalid request." }, { status: 400 });
-  const { productId, listingPrice } = body as { productId?: unknown; listingPrice?: unknown };
-  if (typeof productId !== "string" || typeof listingPrice !== "number") return Response.json({ error: "Choose a product and enter a listing price." }, { status: 400 });
+  const { productId, listingPrice, languages } = body as { productId?: unknown; listingPrice?: unknown; languages?: unknown };
+  if (typeof productId !== "string" || typeof listingPrice !== "number" || !Array.isArray(languages) || languages.length < 1 || languages.length > LANGUAGES.length || languages.some((language) => typeof language !== "string" || !LANGUAGES.includes(language as Language))) {
+    return Response.json({ error: "Choose a product, listing price, and at least one supported customer language." }, { status: 400 });
+  }
   const limited = await limitRequest(request, "start");
   if (limited) return limited;
   let game;
-  try { game = createShopkeeperGame(productId, listingPrice); }
+  try { game = createShopkeeperGame(productId, listingPrice, languages as Language[]); }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Invalid listing." }, { status: 400 }); }
   await createSession(game);
   const fallback = game.openingReply;
